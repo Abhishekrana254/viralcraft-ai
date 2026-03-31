@@ -11,6 +11,8 @@ import Analytics from './pages/Analytics'
 import Pricing from './pages/Pricing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import SocialConnections from './pages/SocialConnections'
+import ContentSeries from './pages/ContentSeries'
 
 // Custom Hook for Authentication
 import { useAuthStore } from './store/authStore'
@@ -76,6 +78,14 @@ function App() {
         <Route
           path="/analytics"
           element={isAuthenticated ? <Analytics /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/connections"
+          element={isAuthenticated ? <SocialConnections /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/series"
+          element={isAuthenticated ? <ContentSeries /> : <Navigate to="/login" />}
         />
 
         {/* 404 Redirect */}

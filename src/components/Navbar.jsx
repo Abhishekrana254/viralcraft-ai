@@ -9,7 +9,9 @@ import {
   LogOut,
   BarChart3,
   PlusCircle,
-  Home
+  Home,
+  Settings,
+  Repeat
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
@@ -30,7 +32,9 @@ const Navbar = () => {
     ? [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
         { name: 'Create', href: '/create', icon: PlusCircle },
+        { name: 'Series', href: '/series', icon: Repeat },
         { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+        { name: 'Connections', href: '/connections', icon: Settings },
       ]
     : [
         { name: 'Home', href: '/', icon: Home },
