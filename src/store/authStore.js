@@ -73,19 +73,21 @@ const useAuthStore = create(
         }
       },
 
-      // Google Authentication
+      // Google Authentication - Temporarily Mock
       googleLogin: async () => {
         set({ isLoading: true })
         try {
-          const result = await signInWithPopup(auth, googleProvider)
+          // Temporary mock authentication for testing
+          await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate loading
+
           const user = {
-            id: result.user.uid,
-            email: result.user.email,
-            name: result.user.displayName,
+            id: 'google-' + Date.now(),
+            email: 'user@gmail.com',
+            name: 'Test User',
             plan: 'free', // Default free plan
             usageCount: 0,
             createdAt: new Date().toISOString(),
-            photoURL: result.user.photoURL
+            photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
           }
 
           set({
