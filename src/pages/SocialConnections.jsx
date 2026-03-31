@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Youtube, Instagram, Twitter, Facebook, Settings, Plus, CheckCircle, AlertCircle } from 'lucide-react'
+import { Youtube, Instagram, Twitter, Facebook, Settings, Plus, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import socialMediaService from '../services/socialMediaService'
+import toast from 'react-hot-toast'
 
 const SocialConnections = () => {
   const { user } = useAuthStore()
@@ -11,6 +13,8 @@ const SocialConnections = () => {
     twitter: false,
     facebook: false
   })
+  const [isConnecting, setIsConnecting] = useState({})
+  const [connectionData, setConnectionData] = useState({})
 
   const platforms = [
     {
@@ -47,24 +51,104 @@ const SocialConnections = () => {
     }
   ]
 
-  const handleConnect = async (platformId) => {
-    // Mock connection for now - will implement real OAuth later
-    setConnectedPlatforms(prev => ({
-      ...prev,
-      [platformId]: true
-    }))
+  useEffect(() => {
+    // Load existing connections on component mount
+    const loadConnections = async () => {
+      try {
+        const status = socialMediaService.getConnectionStatus()
+        setConnectedPlatforms(status)
 
-    // Simulate API call
-    setTimeout(() => {
-      alert(`${platforms.find(p => p.id === platformId)?.name} connected successfully! 🎉`)
-    }, 1500)
+        // Verify existing tokens
+        for (const [platform, isConnected] of Object.entries(status)) {
+          if (isConnected) {
+            try {
+              let result
+              switch (platform) {
+                case 'youtube':
+                  result = await socialMediaService.verifyYouTubeConnection()
+                  break
+                case 'instagram':
+                  result = await socialMediaService.verifyInstagramConnection()
+                  break
+                case 'twitter':
+                  result = await socialMediaService.verifyTwitterConnection()
+                  break
+              }
+              if (result && result.success) {
+                setConnectionData(prev => ({ ...prev, [platform]: result.data }))
+              }
+            } catch (error) {
+              console.error(`Failed to verify ${platform}:`, error)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load connections:', error)
+      }
+    }
+
+    loadConnections()
+
+    // Listen for OAuth callback messages
+    const handleMessage = (event) => {
+      if (event.data.type === 'oauth_success') {
+        const { platform, data } = event.data
+        setConnectedPlatforms(prev => ({ ...prev, [platform]: true }))
+        setConnectionData(prev => ({ ...prev, [platform]: data }))
+        setIsConnecting(prev => ({ ...prev, [platform]: false }))
+        toast.success(`${platform} connected successfully! 🎉`)
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
+
+  const handleConnect = async (platformId) => {
+    setIsConnecting(prev => ({ ...prev, [platformId]: true }))
+
+    try {
+      let result
+      switch (platformId) {
+        case 'youtube':
+          result = await socialMediaService.connectYouTube()
+          break
+        case 'instagram':
+          result = await socialMediaService.connectInstagram()
+          break
+        case 'twitter':
+          result = await socialMediaService.connectTwitter()
+          break
+        case 'facebook':
+          toast.error('Facebook integration coming soon!')
+          return
+        default:
+          throw new Error(`Unsupported platform: ${platformId}`)
+      }
+
+      if (result && result.success) {
+        setConnectedPlatforms(prev => ({ ...prev, [platformId]: true }))
+        setConnectionData(prev => ({ ...prev, [platformId]: result.data }))
+        toast.success(`${platforms.find(p => p.id === platformId)?.name} connected successfully! 🎉`)
+      }
+    } catch (error) {
+      console.error(`${platformId} connection failed:`, error)
+      toast.error(`Failed to connect ${platformId}: ${error.message}`)
+    } finally {
+      setIsConnecting(prev => ({ ...prev, [platformId]: false }))
+    }
   }
 
-  const handleDisconnect = (platformId) => {
-    setConnectedPlatforms(prev => ({
-      ...prev,
-      [platformId]: false
-    }))
+  const handleDisconnect = async (platformId) => {
+    try {
+      await socialMediaService.disconnect(platformId)
+      setConnectedPlatforms(prev => ({ ...prev, [platformId]: false }))
+      setConnectionData(prev => ({ ...prev, [platformId]: null }))
+      toast.success(`${platforms.find(p => p.id === platformId)?.name} disconnected successfully`)
+    } catch (error) {
+      console.error(`Failed to disconnect ${platformId}:`, error)
+      toast.error(`Failed to disconnect ${platformId}`)
+    }
   }
 
   return (
@@ -198,10 +282,20 @@ const SocialConnections = () => {
                   ) : (
                     <button
                       onClick={() => handleConnect(platform.id)}
-                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 flex items-center justify-center"
+                      disabled={isConnecting[platform.id]}
+                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Connect {platform.name}
+                      {isConnecting[platform.id] ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Connect {platform.name}
+                        </>
+                      )}
                     </button>
                   )}
                 </div>

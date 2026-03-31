@@ -22,6 +22,8 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import UpgradeModal from '../components/UpgradeModal'
 import multiAIService from '../services/multiAIService'
+import postingService from '../services/postingService'
+import socialMediaService from '../services/socialMediaService'
 
 const ContentGenerator = () => {
   const { user } = useAuthStore()
@@ -38,13 +40,32 @@ const ContentGenerator = () => {
     thisMonth: 0,
     totalGenerated: 0
   })
+  const [isPosting, setIsPosting] = useState(false)
+  const [connectedPlatforms, setConnectedPlatforms] = useState({})
+  const [selectedPostingPlatforms, setSelectedPostingPlatforms] = useState([])
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
 
-  // Load user's usage stats
+  // Load user's usage stats and connected platforms
   useEffect(() => {
     if (user) {
       loadUserUsage()
+      loadConnectedPlatforms()
     }
   }, [user])
+
+  const loadConnectedPlatforms = async () => {
+    try {
+      const platforms = socialMediaService.getConnectionStatus()
+      setConnectedPlatforms(platforms)
+
+      // Auto-select connected platforms for posting
+      const connected = Object.keys(platforms).filter(key => platforms[key])
+      setSelectedPostingPlatforms(connected.slice(0, 2)) // Select first 2 by default
+    } catch (error) {
+      console.error('Failed to load connected platforms:', error)
+    }
+  }
 
   const loadUserUsage = async () => {
     try {
@@ -167,6 +188,106 @@ const ContentGenerator = () => {
     } catch (error) {
       toast.error('Failed to copy content')
     }
+  }
+
+  // Real Social Media Posting Functions
+  const handlePostNow = async () => {
+    if (!generatedContent) {
+      toast.error('No content to post')
+      return
+    }
+
+    if (selectedPostingPlatforms.length === 0) {
+      toast.error('Please select at least one platform to post to')
+      return
+    }
+
+    setIsPosting(true)
+
+    try {
+      const result = await postingService.postToMultiplePlatforms(
+        generatedContent,
+        selectedPostingPlatforms
+      )
+
+      if (result.success) {
+        toast.success(`Posted to ${result.successCount} platform(s)! 🚀`)
+
+        // Update usage stats
+        setUsageStats(prev => ({
+          thisMonth: prev.thisMonth + 1,
+          totalGenerated: prev.totalGenerated + 1
+        }))
+      } else {
+        toast.error('Failed to post to platforms')
+      }
+    } catch (error) {
+      console.error('Posting failed:', error)
+      toast.error('Posting failed: ' + error.message)
+    } finally {
+      setIsPosting(false)
+    }
+  }
+
+  const handleSchedulePost = async () => {
+    if (!generatedContent) {
+      toast.error('No content to schedule')
+      return
+    }
+
+    if (selectedPostingPlatforms.length === 0) {
+      toast.error('Please select platforms for scheduling')
+      return
+    }
+
+    if (!scheduleDate || !scheduleTime) {
+      toast.error('Please select date and time for scheduling')
+      return
+    }
+
+    const scheduleDateTime = new Date(`${scheduleDate}T${scheduleTime}`)
+    if (scheduleDateTime <= new Date()) {
+      toast.error('Schedule time must be in the future')
+      return
+    }
+
+    setIsPosting(true)
+
+    try {
+      const result = await postingService.postToMultiplePlatforms(
+        generatedContent,
+        selectedPostingPlatforms,
+        scheduleDateTime
+      )
+
+      if (result.success) {
+        toast.success('Post scheduled successfully! ⏰')
+
+        // Clear scheduling inputs
+        setScheduleDate('')
+        setScheduleTime('')
+      }
+    } catch (error) {
+      console.error('Scheduling failed:', error)
+      toast.error('Scheduling failed: ' + error.message)
+    } finally {
+      setIsPosting(false)
+    }
+  }
+
+  const togglePlatformSelection = (platform) => {
+    if (!connectedPlatforms[platform]) {
+      toast.error(`Please connect your ${platform} account first`)
+      return
+    }
+
+    setSelectedPostingPlatforms(prev => {
+      if (prev.includes(platform)) {
+        return prev.filter(p => p !== platform)
+      } else {
+        return [...prev, platform]
+      }
+    })
   }
 
   const selectedPlatformData = platforms.find(p => p.id === selectedPlatform)
@@ -450,22 +571,89 @@ const ContentGenerator = () => {
                     </pre>
                   </div>
 
+                  {/* Platform Selection for Posting */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-3">📤 Post to Platforms:</h4>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {[
+                        { id: 'youtube', name: 'YouTube', color: 'bg-red-500' },
+                        { id: 'instagram', name: 'Instagram', color: 'bg-purple-500' },
+                        { id: 'twitter', name: 'Twitter', color: 'bg-blue-500' },
+                        { id: 'facebook', name: 'Facebook', color: 'bg-blue-600' }
+                      ].map(platform => (
+                        <button
+                          key={platform.id}
+                          onClick={() => togglePlatformSelection(platform.id)}
+                          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                            selectedPostingPlatforms.includes(platform.id)
+                              ? `${platform.color} text-white`
+                              : connectedPlatforms[platform.id]
+                                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {platform.name}
+                          {!connectedPlatforms[platform.id] && ' (Connect first)'}
+                          {selectedPostingPlatforms.includes(platform.id) && ' ✓'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Scheduling Options */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        placeholder="Schedule Date"
+                      />
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        placeholder="Schedule Time"
+                      />
+                    </div>
+                  </div>
+
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3 mt-6">
-                    <button className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors">
-                      <Send className="h-4 w-4" />
-                      <span>Schedule Post</span>
+                    <button
+                      onClick={handlePostNow}
+                      disabled={isPosting || selectedPostingPlatforms.length === 0}
+                      className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                    >
+                      {isPosting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      <span>{isPosting ? 'Posting...' : 'Post Now'}</span>
                     </button>
-                    <button className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors">
-                      <Calendar className="h-4 w-4" />
-                      <span>Add to Calendar</span>
+
+                    <button
+                      onClick={handleSchedulePost}
+                      disabled={isPosting || !scheduleDate || !scheduleTime || selectedPostingPlatforms.length === 0}
+                      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                    >
+                      {isPosting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Calendar className="h-4 w-4" />
+                      )}
+                      <span>{isPosting ? 'Scheduling...' : 'Schedule Post'}</span>
                     </button>
+
                     <button
                       onClick={generateContent}
-                      className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                      disabled={isGenerating}
+                      className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
                     >
-                      <RefreshCw className="h-4 w-4" />
-                      <span>Regenerate</span>
+                      <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                      <span>{isGenerating ? 'Generating...' : 'Regenerate'}</span>
                     </button>
                   </div>
                 </motion.div>

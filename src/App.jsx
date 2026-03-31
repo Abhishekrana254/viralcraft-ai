@@ -13,6 +13,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import SocialConnections from './pages/SocialConnections'
 import ContentSeries from './pages/ContentSeries'
+import OAuthCallback from './components/OAuthCallback'
 
 // Custom Hook for Authentication
 import { useAuthStore } from './store/authStore'
@@ -87,6 +88,12 @@ function App() {
           path="/series"
           element={isAuthenticated ? <ContentSeries /> : <Navigate to="/login" />}
         />
+
+        {/* OAuth Callbacks */}
+        <Route path="/auth/youtube" element={<OAuthCallback />} />
+        <Route path="/auth/instagram" element={<OAuthCallback />} />
+        <Route path="/auth/twitter" element={<OAuthCallback />} />
+        <Route path="/auth/facebook" element={<OAuthCallback />} />
 
         {/* 404 Redirect */}
         <Route path="*" element={<Navigate to="/" />} />
