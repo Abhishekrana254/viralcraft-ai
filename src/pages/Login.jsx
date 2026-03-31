@@ -8,7 +8,7 @@ import { useAuthStore } from '../store/authStore'
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
-  const { login, isLoading } = useAuthStore()
+  const { login, googleLogin, isLoading } = useAuthStore()
   const navigate = useNavigate()
 
   const {
@@ -25,6 +25,17 @@ const Login = () => {
       navigate('/dashboard')
     } else {
       toast.error(result.error || 'Login failed')
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    const result = await googleLogin()
+
+    if (result.success) {
+      toast.success('Welcome back!')
+      navigate('/dashboard')
+    } else {
+      toast.error(result.error || 'Google login failed')
     }
   }
 
@@ -175,7 +186,9 @@ const Login = () => {
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24">
                     <path

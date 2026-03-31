@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
@@ -16,7 +16,17 @@ import Signup from './pages/Signup'
 import { useAuthStore } from './store/authStore'
 
 function App() {
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const { isAuthenticated, isLoading, initialize } = useAuthStore()
+
+  useEffect(() => {
+    // Initialize Firebase auth state
+    const unsubscribe = initialize()
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [])
 
   if (isLoading) {
     return (
