@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Youtube, Instagram, Twitter, Facebook, Settings, Plus, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Youtube, Instagram, Twitter, Facebook, Settings, Plus, CheckCircle, AlertCircle, Loader2, AlertTriangle, Info } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import socialMediaService from '../services/socialMediaService'
 import toast from 'react-hot-toast'
@@ -249,7 +249,7 @@ const SocialConnections = () => {
                 </div>
 
                 {/* Features */}
-                <div className="mb-6">
+                <div className="mb-4">
                   <h4 className="font-semibold text-gray-900 mb-2">Features:</h4>
                   <ul className="space-y-1">
                     {platform.features.map((feature, idx) => (
@@ -260,6 +260,55 @@ const SocialConnections = () => {
                     ))}
                   </ul>
                 </div>
+
+                {/* Platform-specific Requirements */}
+                {platform.id === 'instagram' && (
+                  <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-orange-800 mb-1">Account Requirement</p>
+                        <p className="text-orange-700">Your Instagram account must be a <strong>Business or Creator account</strong> to connect. Personal accounts are not supported.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {platform.id === 'youtube' && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-800 mb-1">Account Requirement</p>
+                        <p className="text-blue-700">You must have a <strong>Google account linked to your YouTube channel</strong> with upload permissions to connect.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {platform.id === 'twitter' && (
+                  <div className="mb-4 p-3 bg-sky-50 border border-sky-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <Info className="h-4 w-4 text-sky-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-sky-800 mb-1">Account Requirement</p>
+                        <p className="text-sky-700">You need an <strong>active Twitter account</strong> with posting permissions enabled to connect.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {platform.id === 'facebook' && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-800 mb-1">Account Requirement</p>
+                        <p className="text-blue-700">You need access to a <strong>Facebook Page</strong> for posting. Personal profiles are not supported.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Connection Button */}
                 <div>

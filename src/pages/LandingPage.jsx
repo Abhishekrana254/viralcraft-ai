@@ -253,6 +253,75 @@ const LandingPage = () => {
           </p>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8">
+            {/* Brand */}
+            <div className="col-span-1">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="p-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xl font-bold text-gradient">ViralCraft AI</span>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Create viral content with AI and grow your social media presence across all platforms.
+              </p>
+            </div>
+
+            {/* Product */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Product</h3>
+              <ul className="space-y-2">
+                <li><Link to="/pricing" className="text-gray-600 hover:text-purple-600 text-sm">Pricing</Link></li>
+                <li><Link to="/create" className="text-gray-600 hover:text-purple-600 text-sm">AI Generator</Link></li>
+                <li><Link to="/connections" className="text-gray-600 hover:text-purple-600 text-sm">Integrations</Link></li>
+                <li><Link to="/analytics" className="text-gray-600 hover:text-purple-600 text-sm">Analytics</Link></li>
+              </ul>
+            </div>
+
+            {/* Support */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Support</h3>
+              <ul className="space-y-2">
+                <li><a href="mailto:support@viralcraft.ai" className="text-gray-600 hover:text-purple-600 text-sm">Help Center</a></li>
+                <li><a href="mailto:support@viralcraft.ai" className="text-gray-600 hover:text-purple-600 text-sm">Contact Us</a></li>
+                <li><a href="mailto:support@viralcraft.ai" className="text-gray-600 hover:text-purple-600 text-sm">API Documentation</a></li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Legal</h3>
+              <ul className="space-y-2">
+                <li><Link to="/privacy-policy" className="text-gray-600 hover:text-purple-600 text-sm">Privacy Policy</Link></li>
+                <li><Link to="/terms-of-service" className="text-gray-600 hover:text-purple-600 text-sm">Terms of Service</Link></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-8 mt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <p className="text-gray-600 text-sm">
+                © 2024 ViralCraft AI. All rights reserved.
+              </p>
+              <div className="flex space-x-4 mt-4 md:mt-0">
+                <a href="#" className="text-gray-600 hover:text-purple-600">
+                  <Twitter className="h-5 w-5" />
+                </a>
+                <a href="#" className="text-gray-600 hover:text-purple-600">
+                  <Instagram className="h-5 w-5" />
+                </a>
+                <a href="#" className="text-gray-600 hover:text-purple-600">
+                  <Youtube className="h-5 w-5" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

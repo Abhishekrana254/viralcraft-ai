@@ -13,6 +13,8 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import SocialConnections from './pages/SocialConnections'
 import ContentSeries from './pages/ContentSeries'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import TermsOfService from './pages/TermsOfService'
 import OAuthCallback from './components/OAuthCallback'
 
 // Custom Hook for Authentication
@@ -58,6 +60,8 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route
           path="/login"
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />}
