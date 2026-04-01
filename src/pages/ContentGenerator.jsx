@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   Sparkles,
@@ -16,7 +16,12 @@ import {
   CheckCircle,
   AlertCircle,
   Crown,
-  Zap
+  Zap,
+  Video,
+  Play,
+  Upload,
+  Volume2,
+  VolumeX
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
@@ -24,6 +29,7 @@ import UpgradeModal from '../components/UpgradeModal'
 import multiAIService from '../services/multiAIService'
 import postingService from '../services/postingService'
 import socialMediaService from '../services/socialMediaService'
+import videoGeneratorService from '../services/videoGeneratorService'
 
 const ContentGenerator = () => {
   const { user } = useAuthStore()
@@ -45,6 +51,15 @@ const ContentGenerator = () => {
   const [selectedPostingPlatforms, setSelectedPostingPlatforms] = useState([])
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
+
+  // Video generation states
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false)
+  const [videoResult, setVideoResult] = useState(null)
+  const [videoProgress, setVideoProgress] = useState({ progress: 0, message: '' })
+  const [isUploadingToYouTube, setIsUploadingToYouTube] = useState(false)
+  const [videoFormat, setVideoFormat] = useState('vertical')
+  const [isPlayingVoiceover, setIsPlayingVoiceover] = useState(false)
+  const videoRef = useRef(null)
 
   // Load user's usage stats and connected platforms
   useEffect(() => {
@@ -288,6 +303,147 @@ const ContentGenerator = () => {
         return [...prev, platform]
       }
     })
+  }
+
+  // Video Generation Functions
+  const handleGenerateVideo = async () => {
+    if (!generatedContent) {
+      toast.error('Generate content first, then create video')
+      return
+    }
+
+    setIsGeneratingVideo(true)
+    setVideoResult(null)
+    setVideoProgress({ progress: 0, message: 'Starting video generation...' })
+
+    try {
+      const result = await videoGeneratorService.generateVideo(generatedContent, {
+        format: videoFormat,
+        withVoiceover: true,
+        secondsPerScene: 5,
+        onProgress: (progress) => {
+          setVideoProgress(progress)
+        }
+      })
+
+      setVideoResult(result)
+      toast.success(`Video generated! ${result.duration}s, ${result.scenes.length} scenes`)
+    } catch (error) {
+      console.error('Video generation failed:', error)
+      toast.error('Video generation failed: ' + error.message)
+    } finally {
+      setIsGeneratingVideo(false)
+    }
+  }
+
+  const handleUploadToYouTube = async () => {
+    if (!videoResult?.blob) {
+      toast.error('No video to upload')
+      return
+    }
+
+    const token = localStorage.getItem('youtube_access_token')
+    if (!token) {
+      toast.error('Please connect YouTube first from Connections page')
+      return
+    }
+
+    setIsUploadingToYouTube(true)
+
+    try {
+      // Extract title from content
+      const lines = generatedContent.split('\n').filter(l => l.trim())
+      const title = lines[0]?.replace(/[*#🎬]/g, '').trim().slice(0, 100) || 'AI Generated Video'
+      const description = generatedContent.slice(0, 5000)
+
+      // Create form data for resumable upload
+      const metadata = {
+        snippet: {
+          title: title,
+          description: description + '\n\n---\nGenerated with ViralCraft AI',
+          tags: ['AI', 'ViralCraft', 'content', 'automation'],
+          categoryId: '22'
+        },
+        status: {
+          privacyStatus: 'unlisted', // Start as unlisted for safety
+          selfDeclaredMadeForKids: false
+        }
+      }
+
+      // Step 1: Initialize resumable upload
+      const initResponse = await fetch(
+        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json; charset=UTF-8',
+            'X-Upload-Content-Length': videoResult.blob.size,
+            'X-Upload-Content-Type': 'video/webm'
+          },
+          body: JSON.stringify(metadata)
+        }
+      )
+
+      if (!initResponse.ok) {
+        const errorData = await initResponse.json().catch(() => ({}))
+        throw new Error(errorData.error?.message || `Upload init failed: ${initResponse.status}`)
+      }
+
+      const uploadUrl = initResponse.headers.get('Location')
+
+      // Step 2: Upload video file
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'video/webm',
+          'Content-Length': videoResult.blob.size
+        },
+        body: videoResult.blob
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Video upload failed: ${uploadResponse.status}`)
+      }
+
+      const videoData = await uploadResponse.json()
+      const videoUrl = `https://youtube.com/watch?v=${videoData.id}`
+
+      toast.success(
+        <div>
+          <p>Video uploaded to YouTube!</p>
+          <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
+            Watch on YouTube
+          </a>
+        </div>,
+        { duration: 10000 }
+      )
+    } catch (error) {
+      console.error('YouTube upload failed:', error)
+      toast.error('Upload failed: ' + error.message)
+    } finally {
+      setIsUploadingToYouTube(false)
+    }
+  }
+
+  const toggleVoiceover = () => {
+    if (isPlayingVoiceover) {
+      videoGeneratorService.stopVoiceover()
+      setIsPlayingVoiceover(false)
+    } else if (videoResult?.scenes) {
+      videoGeneratorService.playVoiceover(videoResult.scenes)
+      setIsPlayingVoiceover(true)
+      if (videoRef.current) videoRef.current.play()
+    }
+  }
+
+  const handleDownloadVideo = () => {
+    if (!videoResult?.url) return
+    const a = document.createElement('a')
+    a.href = videoResult.url
+    a.download = `viralcraft-video-${Date.now()}.webm`
+    a.click()
+    toast.success('Video downloaded!')
   }
 
   const selectedPlatformData = platforms.find(p => p.id === selectedPlatform)
@@ -655,6 +811,164 @@ const ContentGenerator = () => {
                       <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
                       <span>{isGenerating ? 'Generating...' : 'Regenerate'}</span>
                     </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Video Generation Section */}
+              {generatedContent && selectedPlatform === 'youtube' && contentType === 'script' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-8"
+                >
+                  <div className="card p-6 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Video className="h-6 w-6 text-purple-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Auto-Generate Video</h3>
+                          <p className="text-sm text-gray-600">Create faceless video from your script - like FaceReels!</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Video Format Selection */}
+                    <div className="flex gap-3 mb-4">
+                      <button
+                        onClick={() => setVideoFormat('vertical')}
+                        className={`flex-1 p-3 rounded-lg border-2 text-center transition-all ${
+                          videoFormat === 'vertical'
+                            ? 'border-purple-400 bg-purple-100'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">📱</div>
+                        <div className="font-medium text-sm">Vertical 9:16</div>
+                        <div className="text-xs text-gray-500">Shorts / Reels</div>
+                      </button>
+                      <button
+                        onClick={() => setVideoFormat('horizontal')}
+                        className={`flex-1 p-3 rounded-lg border-2 text-center transition-all ${
+                          videoFormat === 'horizontal'
+                            ? 'border-purple-400 bg-purple-100'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🖥️</div>
+                        <div className="font-medium text-sm">Horizontal 16:9</div>
+                        <div className="text-xs text-gray-500">YouTube Video</div>
+                      </button>
+                    </div>
+
+                    {/* Generate Video Button */}
+                    {!videoResult && (
+                      <button
+                        onClick={handleGenerateVideo}
+                        disabled={isGeneratingVideo}
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all flex items-center justify-center"
+                      >
+                        {isGeneratingVideo ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                            {videoProgress.message || 'Generating video...'}
+                          </>
+                        ) : (
+                          <>
+                            <Video className="h-5 w-5 mr-2" />
+                            Generate Video from Script
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Progress Bar */}
+                    {isGeneratingVideo && (
+                      <div className="mt-4">
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className="bg-gradient-to-r from-purple-600 to-pink-600 h-3 rounded-full transition-all duration-300"
+                            style={{ width: `${videoProgress.progress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2 text-center">
+                          {videoProgress.progress}% - {videoProgress.message}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Video Preview */}
+                    {videoResult && (
+                      <div className="mt-4">
+                        <div className={`relative mx-auto bg-black rounded-lg overflow-hidden ${
+                          videoFormat === 'vertical' ? 'max-w-[280px]' : 'max-w-full'
+                        }`}>
+                          <video
+                            ref={videoRef}
+                            src={videoResult.url}
+                            controls
+                            className="w-full"
+                            style={{ aspectRatio: videoFormat === 'vertical' ? '9/16' : '16/9' }}
+                          />
+                        </div>
+
+                        <div className="mt-2 text-center text-sm text-gray-600">
+                          {videoResult.scenes.length} scenes | {videoResult.duration}s duration | {videoFormat === 'vertical' ? '1080x1920' : '1920x1080'}
+                        </div>
+
+                        {/* Video Action Buttons */}
+                        <div className="flex flex-wrap gap-3 mt-4 justify-center">
+                          <button
+                            onClick={toggleVoiceover}
+                            className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                          >
+                            {isPlayingVoiceover ? (
+                              <VolumeX className="h-4 w-4" />
+                            ) : (
+                              <Volume2 className="h-4 w-4" />
+                            )}
+                            <span>{isPlayingVoiceover ? 'Stop Voiceover' : 'Play with Voiceover'}</span>
+                          </button>
+
+                          <button
+                            onClick={handleDownloadVideo}
+                            className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Download Video</span>
+                          </button>
+
+                          <button
+                            onClick={handleUploadToYouTube}
+                            disabled={isUploadingToYouTube || !connectedPlatforms.youtube}
+                            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                          >
+                            {isUploadingToYouTube ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4" />
+                            )}
+                            <span>{isUploadingToYouTube ? 'Uploading...' : 'Upload to YouTube'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => { setVideoResult(null); setVideoProgress({ progress: 0, message: '' }) }}
+                            className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            <span>Regenerate</span>
+                          </button>
+                        </div>
+
+                        {!connectedPlatforms.youtube && (
+                          <p className="text-sm text-amber-600 mt-3 text-center">
+                            Connect YouTube from Connections page to upload directly
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
